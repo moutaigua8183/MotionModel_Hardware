@@ -1,0 +1,378 @@
+C51 COMPILER V9.00   MM_MODEL                                                              06/18/2014 15:35:05 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE MM_MODEL
+OBJECT MODULE PLACED IN MM_Model.OBJ
+COMPILER INVOKED BY: D:\Program Files\Keil\C51\BIN\C51.EXE MM_Model.c LARGE BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include <MM_Model.h>
+   2          #include <MM_Accelerator.h>
+   3          #include <math.h>
+   4          #include <MM_Bluetooth.h>
+   5          
+   6          #define DATABASE_SIZE 70
+   7          
+   8          int idata THRES_STILL=25;
+   9          int idata THRES_SIT_Z=50;
+  10          int idata THRES_STAND_X=80;
+  11          int idata THRES_STAND_Y=90;
+  12          int idata THRES_STAND_Z=-200;
+  13          int idata THRES_RUN     =-500;
+  14          int idata THRES_WALK=-270;
+  15          
+  16          
+  17           /******************坐标系***************/
+  18          void SpaceCreate(float A[3][3])
+  19          {
+  20   1              int idata i,a,b,c,ap,bp,cp;
+  21   1              VECTOR idata test[3];
+  22   1              float idata temp;
+  23   1              GetAll(&ap,&bp,&cp);
+  24   1              for(i=0;i<3;i++)
+  25   1              {
+  26   2                      GetAll(&a,&b,&c);
+  27   2                      delay(70);
+  28   2                      if( abs(ap-a)<10 && abs(bp-b)<10 && abs(cp-c)<10 )
+  29   2                      {
+  30   3                               test[i].a=a;
+  31   3                               test[i].b=b;
+  32   3                               test[i].c=c;
+  33   3                      }
+  34   2                      else
+  35   2                              i--;
+  36   2                      ap=a;
+  37   2                      bp=b;
+  38   2                      cp=c;
+  39   2              }
+  40   1              //x暂时借作为临时变量，算标准化过的z
+  41   1              A[0][0]=-(test[0].a+test[1].a+test[2].a)/3;
+  42   1              A[0][1]=-(test[0].b+test[1].b+test[2].b)/3;
+  43   1              A[0][2]=-(test[0].c+test[1].c+test[2].c)/3;
+  44   1              temp=sqrt(A[0][0]*A[0][0]+A[0][1]*A[0][1]+A[0][2]*A[0][2]);
+  45   1              A[2][0]=A[0][0]/temp;
+  46   1              A[2][1]=A[0][1]/temp;
+  47   1              A[2][2]=A[0][2]/temp;
+  48   1      
+  49   1              GetAll(&a,&b,&c);
+  50   1              i=0;
+  51   1              test[0].a=0;
+  52   1              test[0].b=0;
+  53   1              test[0].c=0;
+  54   1              while( 1 )
+  55   1              {
+C51 COMPILER V9.00   MM_MODEL                                                              06/18/2014 15:35:05 PAGE 2   
+
+  56   2                      if( i<10
+  57   2                              && abs(a-ap)<20 && abs(b-bp)<20 && abs(c-cp)<20 
+  58   2                              && (abs(a+A[0][0])>130 || abs(b+A[0][1])>130 || abs(c+A[0][2])>130)
+  59   2                              )
+  60   2                      {
+  61   3                              test[0].a+=a;
+  62   3                              test[0].b+=b;
+  63   3                              test[0].c+=c;
+  64   3                              i++;
+  65   3                      }
+  66   2                      if(i==10)
+  67   2                              break;  
+  68   2                      ap=a;   bp=b;   cp=c;
+  69   2                      GetAll(&a,&b,&c);
+  70   2                      delay(50);
+  71   2              }
+  72   1      
+  73   1              //第一下变化方向
+  74   1              A[1][0]=test[0].a/10+A[0][0];
+  75   1              A[1][1]=test[0].b/10+A[0][1];
+  76   1              A[1][2]=test[0].c/10+A[0][2];
+  77   1              //X轴正向
+  78   1              A[0][0]=A[1][1]*A[2][2]-A[2][1]*A[1][2];
+  79   1              A[0][1]=A[1][2]*A[2][0]-A[2][2]*A[1][0];
+  80   1              A[0][2]=A[1][0]*A[2][1]-A[2][0]*A[1][1];
+  81   1              //X轴标准化
+  82   1              temp=sqrt(A[0][0]*A[0][0]+A[0][1]*A[0][1]+A[0][2]*A[0][2]);
+  83   1              A[0][0]=A[0][0]/temp;
+  84   1              A[0][1]=A[0][1]/temp;
+  85   1              A[0][2]=A[0][2]/temp;
+  86   1              //Y轴标准化
+  87   1              A[1][0]=A[2][1]*A[0][2]-A[0][1]*A[2][2];
+  88   1              A[1][1]=A[0][2]*A[2][2]-A[2][0]*A[0][2];
+  89   1              A[1][2]=A[2][0]*A[0][1]-A[0][0]*A[2][1];
+  90   1              SendByte('K');
+  91   1      }
+  92          
+  93          void SpaceTrans(VECTOR *n, float A[3][3])
+  94          {
+  95   1              VECTOR idata temp;
+  96   1              temp.a=(*n).a;
+  97   1              temp.b=(*n).b;
+  98   1              temp.c=(*n).c;
+  99   1              (*n).a=A[0][0]*temp.a+A[0][1]*temp.b+A[0][2]*temp.c;
+ 100   1              (*n).b=A[1][0]*temp.a+A[1][1]*temp.b+A[1][2]*temp.c;
+ 101   1              (*n).c=A[2][0]*temp.a+A[2][1]*temp.b+A[2][2]*temp.c;
+ 102   1      }
+ 103          
+ 104          
+ 105          
+ 106          
+ 107          
+ 108          
+ 109           /******************Common Functions***************/
+ 110          void UpdateDatabase( VECTOR n[DATABASE_SIZE],float A[3][3] )
+ 111          {
+ 112   1              int idata i;
+ 113   1              for (i=0; i<DATABASE_SIZE; i++)
+ 114   1              {       
+ 115   2                      GetAll(&n[i].a, &n[i].b, &n[i].c);
+ 116   2                      SpaceTrans(n+i,A);
+ 117   2                      delay(2);
+C51 COMPILER V9.00   MM_MODEL                                                              06/18/2014 15:35:05 PAGE 3   
+
+ 118   2              }
+ 119   1      }
+ 120          
+ 121          
+ 122          void AnalyzeDatabase(VECTOR x[DATABASE_SIZE], STAT_SET set[3], int array[DATABASE_SIZE])
+ 123          {
+ 124   1              int idata i;
+ 125   1              int idata count=0,count_sum=0,count_num=0, isFirst=1;
+ 126   1              long idata a=0,b=0,c=0;
+ 127   1              for(i=0;i<DATABASE_SIZE;i++)
+ 128   1              {
+ 129   2                      array[i]=x[i].c;
+ 130   2                      a+=x[i].a;
+ 131   2                      b+=x[i].b;
+ 132   2                      c+=x[i].c;
+ 133   2              }
+ 134   1              set[0].MEAN=a/DATABASE_SIZE;
+ 135   1              set[1].MEAN=b/DATABASE_SIZE;
+ 136   1              set[2].MEAN=c/DATABASE_SIZE;
+ 137   1              for(i=0;i<DATABASE_SIZE;i++)
+ 138   1              {
+ 139   2                      set[0].FLUC=abs(x[i].a-set[0].MEAN);
+ 140   2                      set[1].FLUC=abs(x[i].b-set[1].MEAN);
+ 141   2                      set[2].FLUC=abs(x[i].c-set[2].MEAN);
+ 142   2              }
+ 143   1      }
+ 144          
+ 145          
+ 146          
+ 147          unsigned int isStill( STAT_SET *set )
+ 148          {
+ 149   1              if( set[0].FLUC<THRES_STILL && set[1].FLUC<THRES_STILL && set[2].FLUC<THRES_STILL)
+ 150   1                      return 1;
+ 151   1              else
+ 152   1                      return 0;
+ 153   1      }
+ 154          
+ 155          
+ 156          /*******************Motion Detection*********************/
+ 157          unsigned int StillStatus(STAT_SET *set)
+ 158          {
+ 159   1              if(     set[2].MEAN<THRES_STAND_Z )
+ 160   1                      return 1;       //Standing
+ 161   1              if( abs( set[0].MEAN<120 )              //排除侧翻
+ 162   1                      && set[1].MEAN>0 
+ 163   1                      && set[2].MEAN<THRES_SIT_Z && set[2].MEAN>THRES_STAND_Z 
+ 164   1                      )
+ 165   1                      return 2;       //Sitting
+ 166   1              if( abs(set[0].MEAN)>150                //侧翻
+ 167   1                      || set[1].MEAN<-200             //前扑
+ 168   1                      || set[2].MEAN>100                      //后坐
+ 169   1                      )               
+ 170   1                      return 8;       //FallDown
+ 171   1              return 0;
+ 172   1      }
+ 173          
+ 174          unsigned int MovingStatus( int array[DATABASE_SIZE] )
+ 175          {
+ 176   1              int idata i=0,j=0,levelnum_min=0;
+ 177   1              float idata level_min=0;
+ 178   1              double idata levelsum_min=0;
+ 179   1              int temp[3],validvalues[DATABASE_SIZE/4];
+C51 COMPILER V9.00   MM_MODEL                                                              06/18/2014 15:35:05 PAGE 4   
+
+ 180   1              temp[0]=array[0];
+ 181   1              temp[1]=array[1];
+ 182   1              temp[2]=array[2]; 
+ 183   1              for(i=1;i<DATABASE_SIZE;i++)
+ 184   1              {
+ 185   2                      if( temp[1]<temp[0] && temp[1]<temp[2] )
+ 186   2                      {
+ 187   3                              if( temp[1]<-250 )
+ 188   3                              {
+ 189   4                                      validvalues[j]=temp[1];
+ 190   4                                      levelsum_min=levelsum_min+temp[1];
+ 191   4                                      levelnum_min++;
+ 192   4                                      j++;                            
+ 193   4                              }
+ 194   3                      }
+ 195   2                      if(i==DATABASE_SIZE-2)
+ 196   2                              break;
+ 197   2                      else
+ 198   2                      {
+ 199   3                              temp[0]=temp[1];
+ 200   3                              temp[1]=temp[2];
+ 201   3                              temp[2]=array[i+2];
+ 202   3                      }               
+ 203   2              }
+ 204   1              level_min=levelsum_min/levelnum_min;
+ 205   1              levelsum_min=0;levelnum_min=0;
+ 206   1              for(i=0;i<j;i++)
+ 207   1              {
+ 208   2                      if( validvalues[i]<level_min )
+ 209   2                      {
+ 210   3                              levelsum_min=levelsum_min+validvalues[i];
+ 211   3                              levelnum_min++;                         
+ 212   3                      }
+ 213   2              }
+ 214   1              level_min=levelsum_min/levelnum_min;
+ 215   1              if( levelnum_min==0 )
+ 216   1                      return 0;
+ 217   1              if( level_min<THRES_RUN )
+ 218   1                      return 5;
+ 219   1              else if(level_min<THRES_WALK ) 
+ 220   1                      return 4;
+ 221   1              return 0;
+ 222   1      
+ 223   1      
+ 224   1      }
+ 225          
+ 226          
+ 227          /***************************Pedometer********************************/
+ 228          int Count( int array[DATABASE_SIZE] )
+ 229          {
+ 230   1              int idata i=0,j=0,m=0,NUM=50,count=0,levelnum_max=0,levelnum_min=0,prestatus=-1,prepos=0;
+ 231   1              float idata level_min=0,level_max=0,THRES_INTERVAL;
+ 232   1              double idata levelsum_max=0,levelsum_min=0,exp;
+ 233   1              int temp[3],validvalues[DATABASE_SIZE/4],validpos[DATABASE_SIZE/4];
+ 234   1              temp[0]=array[0];
+ 235   1              temp[1]=array[1];
+ 236   1              temp[2]=array[2]; 
+ 237   1              for(i=1;i<DATABASE_SIZE;i++)
+ 238   1              {
+ 239   2                      if( temp[1]<temp[0] && temp[1]<temp[2] )
+ 240   2                      {
+ 241   3                              if( temp[1]<-250 )
+C51 COMPILER V9.00   MM_MODEL                                                              06/18/2014 15:35:05 PAGE 5   
+
+ 242   3                              {
+ 243   4                                      validvalues[j]=temp[1];
+ 244   4                                      validpos[j]=i;
+ 245   4                                      levelsum_min=levelsum_min+temp[1];
+ 246   4                                      levelnum_min++;
+ 247   4                                      j++;                            
+ 248   4                              }
+ 249   3                      }
+ 250   2                      else if ( temp[1]>temp[0] && temp[1]>temp[2] )
+ 251   2                      {
+ 252   3                              if( temp[1]>-250 )
+ 253   3                              {
+ 254   4                                      validvalues[j]=temp[1];
+ 255   4                                      validpos[j]=i;
+ 256   4                                      levelsum_max=levelsum_max+temp[1];
+ 257   4                                      levelnum_max++;
+ 258   4                                      j++;                            
+ 259   4                              }
+ 260   3                      }
+ 261   2                      if(i==DATABASE_SIZE-2)
+ 262   2                              break;
+ 263   2                      else
+ 264   2                      {
+ 265   3                              temp[0]=temp[1];
+ 266   3                              temp[1]=temp[2];
+ 267   3                              temp[2]=array[i+2];
+ 268   3                      }               
+ 269   2              }
+ 270   1              level_min=levelsum_min/levelnum_min;
+ 271   1              level_max=levelsum_max/levelnum_max;
+ 272   1              m=0;levelsum_min=0;levelnum_min=0;levelsum_max=0;levelnum_max=0;
+ 273   1              for(i=0;i<j;i++)
+ 274   1              {
+ 275   2                      if( validvalues[i]>level_max )
+ 276   2                      {
+ 277   3                              validvalues[m]=validvalues[i];
+ 278   3                              validpos[m]=validpos[i];        
+ 279   3                              m++;                            
+ 280   3                      }
+ 281   2                      else if( validvalues[i]<level_min )
+ 282   2                      {
+ 283   3                              validvalues[m]=validvalues[i];
+ 284   3                              validpos[m]=validpos[i];
+ 285   3                              levelsum_min=levelsum_min+validvalues[i];
+ 286   3                              levelnum_min++;
+ 287   3                              m++;                            
+ 288   3                      }
+ 289   2              }
+ 290   1              level_min=levelsum_min/levelnum_min;
+ 291   1              if( levelnum_min==0 )
+ 292   1                      return 0;
+ 293   1              exp=-360/level_min;
+ 294   1              THRES_INTERVAL=pow(10.0,exp);
+ 295   1              if(validvalues[0]<-250)
+ 296   1                      prestatus=0;
+ 297   1              else
+ 298   1                      prestatus=1;
+ 299   1              prepos=0;
+ 300   1              for(i=1;i<m;i++)
+ 301   1              {
+ 302   2                      if( validvalues[i]<-250 && prestatus==1 )
+ 303   2                      {
+C51 COMPILER V9.00   MM_MODEL                                                              06/18/2014 15:35:05 PAGE 6   
+
+ 304   3                              prestatus=0;
+ 305   3                              count++;
+ 306   3                              prepos=validpos[i];
+ 307   3                              continue;
+ 308   3                      }
+ 309   2                      if( validvalues[i]<-250 && prestatus==0 )
+ 310   2                      {
+ 311   3                              if( validpos[i]-prepos>THRES_INTERVAL )
+ 312   3                              {
+ 313   4                                      count++;
+ 314   4                                      prepos=validpos[i];
+ 315   4                                      continue;
+ 316   4                              }       
+ 317   3                              else
+ 318   3                                      continue;
+ 319   3                      }
+ 320   2                      if( validvalues[i]>-250 && prestatus==0 )
+ 321   2                      { 
+ 322   3                              prestatus=1;
+ 323   3                              count++;
+ 324   3                              prepos=validpos[i];
+ 325   3                              continue;
+ 326   3                      }
+ 327   2                      if( validvalues[i]>-250 && prestatus==1 )
+ 328   2                      {
+ 329   3                              if( validpos[i]-prepos>THRES_INTERVAL )
+ 330   3                              {
+ 331   4                                      count++;
+ 332   4                                      prepos=validpos[i];
+ 333   4                                      continue;
+ 334   4                              }       
+ 335   3                              else
+ 336   3                                      continue;
+ 337   3                      }
+ 338   2              }
+ 339   1              if( level_min<THRES_RUN )                               //z轴部分小于所有极小值的平均值的极小值的平均值 跟临界线比
+ 340   1                      count=count+50;
+ 341   1              else if(level_min<THRES_WALK ) 
+ 342   1                      count=count+40;
+ 343   1              return count;
+ 344   1      }
+ 345          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   6416    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----     147
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =     14     122
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

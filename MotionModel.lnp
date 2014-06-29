@@ -1,0 +1,7 @@
+"STARTUP.obj",
+"Main.obj",
+"MM_Accelerator.obj",
+"MM_Model.obj",
+"MM_Bluetooth.obj" 
+TO "MotionModel" 
+RAMSIZE(256) 

@@ -1,0 +1,280 @@
+C51 COMPILER V9.00   1602                                                                  05/07/2014 10:17:08 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE 1602
+OBJECT MODULE PLACED IN 1602.OBJ
+COMPILER INVOKED BY: D:\Program Files\Keil\C51\BIN\C51.EXE 1602.c LARGE BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include"1602.h"
+   2          #include <reg52.h>      
+   3          #include <intrins.h>
+   4          #include <MM_Bluetooth.h>
+   5          
+   6          
+   7          sbit LCD_RS = P2^6;  //复位端            
+   8          sbit LCD_RW = P2^5;      //写数据端
+   9          sbit LCD_EP = P2^7;      //使能端
+  10          
+  11          
+  12          /****************延时函数************************/      
+  13          void delay1602(int ms)
+  14          {                   
+  15   1              int i;
+  16   1              while(ms--)
+  17   1              {
+  18   2                for(i = 0; i< 250; i++)
+  19   2                {
+  20   3                 _nop_();       //空执行
+  21   3                 _nop_();
+  22   3                 _nop_();
+  23   3                 _nop_();
+  24   3                }
+  25   2              }
+  26   1      }
+  27          
+  28          /****************侧忙函数************************/              
+  29          BOOL lcd_bz()
+  30          {                         
+  31   1              BOOL result;
+  32   1              LCD_RS = 0;
+  33   1              LCD_RW = 1;
+  34   1              LCD_EP = 1;
+  35   1              _nop_();
+  36   1              _nop_();
+  37   1              _nop_();
+  38   1              _nop_();
+  39   1              result = (BOOL)(P0 & 0x80);      //检测P0最高位是否为1
+  40   1              LCD_EP = 0;
+  41   1              return result;//返回侧忙结果
+  42   1      }
+  43          
+  44          /****************写命令函数************************/
+  45          void lcd_wcmd_8bit(int cmd)
+  46          {                          // 写入指令数据到LCD
+  47   1              while(lcd_bz());
+  48   1              LCD_RS = 0;
+  49   1              LCD_RW = 0;
+  50   1              LCD_EP = 0;
+  51   1              _nop_();
+  52   1              _nop_(); 
+  53   1              P0 = cmd; //将高4位位指令通过P0口传给1602
+  54   1              _nop_();
+  55   1              _nop_(); //用于产生一个脉冲宽度
+C51 COMPILER V9.00   1602                                                                  05/07/2014 10:17:08 PAGE 2   
+
+  56   1              _nop_();
+  57   1              _nop_();
+  58   1              LCD_EP = 1;
+  59   1              _nop_();
+  60   1              _nop_();
+  61   1              _nop_();
+  62   1              _nop_();
+  63   1              LCD_EP = 0;  
+  64   1      }       
+  65                          
+  66          void lcd_wcmd(int cmd)
+  67          {                          // 写入指令数据到LCD
+  68   1              while(lcd_bz());
+  69   1              LCD_RS = 0;
+  70   1              LCD_RW = 0;
+  71   1              LCD_EP = 0;
+  72   1              _nop_();
+  73   1              _nop_(); 
+  74   1              P0 = cmd; //将高4位位指令通过P0口传给1602
+  75   1              _nop_();
+  76   1              _nop_(); //用于产生一个脉冲宽度
+  77   1              _nop_();
+  78   1              _nop_();
+  79   1              LCD_EP = 1;
+  80   1              _nop_();
+  81   1              _nop_();
+  82   1              _nop_();
+  83   1              _nop_();
+  84   1              LCD_EP = 0;  
+  85   1              P0 = (cmd&0x0f)<<4; //将低4位指令通过P0口传给1602
+  86   1              _nop_();
+  87   1              _nop_(); //用于产生一个脉冲宽度
+  88   1              _nop_();
+  89   1              _nop_();
+  90   1              LCD_EP = 1;
+  91   1              _nop_();
+  92   1              _nop_();
+  93   1              _nop_();
+  94   1              _nop_();
+  95   1              LCD_EP = 0;  
+  96   1      }
+  97                  
+  98          /***********位置****************/
+  99          void lcd_pos(BYTE pos)
+ 100          {                          //设定显示位置
+ 101   1              lcd_wcmd(pos | 0x80);
+ 102   1      }
+ 103          
+ 104          /****************写数据函数************************/    
+ 105          void lcd_wdat(BYTE dat) 
+ 106          {                   //写入字符显示数据到LCD
+ 107   1              while(lcd_bz());
+ 108   1              LCD_RS = 1;
+ 109   1              LCD_RW = 0;
+ 110   1              LCD_EP = 0;
+ 111   1              P0 = dat ;  //将高4位数据通过P0口传给1602
+ 112   1              _nop_();
+ 113   1              _nop_();   //用于产生一个脉冲宽度
+ 114   1              _nop_();
+ 115   1              _nop_();
+ 116   1              LCD_EP = 1;
+ 117   1              _nop_();
+C51 COMPILER V9.00   1602                                                                  05/07/2014 10:17:08 PAGE 3   
+
+ 118   1              _nop_();
+ 119   1              _nop_();
+ 120   1              _nop_();
+ 121   1              LCD_EP = 0; 
+ 122   1      
+ 123   1              LCD_RS = 1;
+ 124   1              LCD_RW = 0;
+ 125   1              LCD_EP = 0;
+ 126   1                      _nop_();
+ 127   1              _nop_();
+ 128   1              _nop_();
+ 129   1              _nop_();
+ 130   1              P0 = (dat&0x0f)<<4;  //将低4位位数据通过P0口传给1602
+ 131   1              _nop_();
+ 132   1              _nop_();   //用于产生一个脉冲宽度
+ 133   1              _nop_();
+ 134   1              _nop_();
+ 135   1              LCD_EP = 1;
+ 136   1              _nop_();
+ 137   1              _nop_();
+ 138   1              _nop_();
+ 139   1              _nop_();
+ 140   1              LCD_EP = 0; 
+ 141   1      }
+ 142                  
+ 143          void lcd_init()                                 //LCD初始化设定
+ 144          { 
+ 145   1          lcd_wcmd_8bit(0x38);                       //16*2显示，5*7点阵，8位数据
+ 146   1              delay1602(1);  
+ 147   1              lcd_wcmd_8bit(0x38);                       //16*2显示，5*7点阵，8位数据
+ 148   1              delay1602(1);  
+ 149   1              lcd_wcmd_8bit(0x28);     //16*2显示，5*7点阵，8位数据
+ 150   1              delay1602(1);  
+ 151   1              lcd_wcmd(0x28);
+ 152   1              delay1602(1);
+ 153   1              lcd_wcmd(0x0c);     //显示开，关光标
+ 154   1              delay1602(1);
+ 155   1              lcd_wcmd(0x02);     //显示开，关光标
+ 156   1              delay1602(1);
+ 157   1              lcd_wcmd(0x01);     //清除LCD的显示内容
+ 158   1              delay1602(1);
+ 159   1      
+ 160   1      /*      lcd_wcmd(0x38);     //16*2显示，5*7点阵，8位数据
+ 161   1              delay(1);
+ 162   1              lcd_wcmd(0x08);     //显示开，关光标
+ 163   1              delay(1);
+ 164   1      //      lcd_wcmd(0x04);     //移动光标
+ 165   1              delay(1);
+ 166   1              lcd_wcmd(0x02);     // 4位选择
+ 167   1              delay(1);
+ 168   1              lcd_wcmd(0x01);     //清除LCD的显示内容
+ 169   1              delay(1); */
+ 170   1      }
+ 171          
+ 172          
+ 173          /***********显示各轴参数**************/
+ 174          void lcd_show_data(BYTE a[8], BYTE b[8], BYTE c[8])
+ 175          {
+ 176   1              lcd_init();
+ 177   1              delay1602(10);
+ 178   1              lcd_wcmd( 0 | 0x80 );
+ 179   1              lcd_wdat('x');
+C51 COMPILER V9.00   1602                                                                  05/07/2014 10:17:08 PAGE 4   
+
+ 180   1              lcd_wdat(':');
+ 181   1              lcd_wdat(a[0]);
+ 182   1              lcd_wdat(a[1]);
+ 183   1              lcd_wdat(a[2]);
+ 184   1              lcd_wdat(a[3]);
+ 185   1              lcd_wdat(a[4]);
+ 186   1              lcd_wdat(a[5]);
+ 187   1              lcd_wcmd( 0x40 | 0x80 );
+ 188   1              lcd_wdat('y');
+ 189   1              lcd_wdat(':');
+ 190   1              lcd_wdat(b[0]);
+ 191   1              lcd_wdat(b[1]);
+ 192   1              lcd_wdat(b[2]);
+ 193   1              lcd_wdat(b[3]);
+ 194   1              lcd_wdat(b[4]);
+ 195   1              lcd_wdat(b[5]);
+ 196   1              lcd_wcmd( 14 | 0x80 );
+ 197   1              lcd_wdat('z');
+ 198   1              lcd_wdat(':');
+ 199   1              lcd_wcmd( 0x4a | 0x80 );
+ 200   1              lcd_wdat(c[0]);
+ 201   1              lcd_wdat(c[1]);
+ 202   1              lcd_wdat(c[2]);
+ 203   1              lcd_wdat(c[3]);
+ 204   1              lcd_wdat(c[4]);
+ 205   1              lcd_wdat(c[5]);
+ 206   1      }
+ 207          
+ 208          
+ 209          /***********显示数据**************/
+ 210          void lcd_show_int(int a)
+ 211          {
+ 212   1              unsigned char wan,qian,bai,shi,ge;
+ 213   1              int temp_data;
+ 214   1              unsigned char X[8];
+ 215   1              
+ 216   1              temp_data = a;
+ 217   1              if(a<0)
+ 218   1              {
+ 219   2                      temp_data=-temp_data;
+ 220   2                      X[0]='-';//显示负符号位
+ 221   2              }
+ 222   1              else 
+ 223   1                      X[0]='+';  //显示空格
+ 224   1              wan=temp_data/10000+0x30 ;
+ 225   1          temp_data=temp_data%10000;   //取余运算
+ 226   1              qian=temp_data/1000+0x30 ;
+ 227   1          temp_data=temp_data%1000;    //取余运算
+ 228   1          bai=temp_data/100+0x30   ;
+ 229   1          temp_data=temp_data%100;     //取余运算
+ 230   1          shi=temp_data/10+0x30    ;
+ 231   1          temp_data=temp_data%10;      //取余运算
+ 232   1          ge=temp_data+0x30; 
+ 233   1              X[1]=wan; X[2]=qian; X[3]=bai; X[4]=shi;X[5]=ge; X[6]='\0';     
+ 234   1              lcd_init();
+ 235   1              delay1602(10);
+ 236   1              lcd_wcmd( 0 | 0x80 );
+ 237   1              lcd_wdat(X[0]);
+ 238   1              lcd_wdat(X[1]);
+ 239   1              lcd_wdat(X[2]);
+ 240   1              lcd_wdat(X[3]);
+ 241   1              lcd_wdat(X[4]);
+C51 COMPILER V9.00   1602                                                                  05/07/2014 10:17:08 PAGE 5   
+
+ 242   1              lcd_wdat(X[5]);
+ 243   1      //      SendByte(':');
+ 244   1      //      SendByte(X[0]);
+ 245   1      //      SendByte(X[3]);
+ 246   1      //      SendByte(X[4]);
+ 247   1      //      SendByte(X[5]);
+ 248   1      //      SendByte(' ');
+ 249   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    897    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----      21
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----       1
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
